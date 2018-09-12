@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import scrapy
+import csv
 
 
 class JamedaSpider(scrapy.Spider):
@@ -32,6 +33,8 @@ class JamedaSpider(scrapy.Spider):
         '''
      
     def parse_doctor(self, response):
+        
+        objects = dict()
         web = response.css('div > a::attr(href)').extract()[38]
         try: 
             if(web[-2] != 'e'):
@@ -47,7 +50,9 @@ class JamedaSpider(scrapy.Spider):
         for i in response.css('div > div::text').extract():
             if(i[0:3] == '030'):
                 kontakt = i
-        yield {
+        
+        objects = {
+            
             'name': response.css('div > h1::text').extract_first(),
             'adresse': " ".join(adresse),
             'kontakt': kontakt,
@@ -60,3 +65,28 @@ class JamedaSpider(scrapy.Spider):
             'privatpatienten': response.css('div.haken_ja_nein').extract()[1][-7],
             'Anzahl_Bewertungen': response.css('div.box-gray > span::text').extract_first(),
         }
+       
+        reviewsLink = response.css('a.link-mehr::attr(href)').extract_first()
+        joinReviews = response.urljoin(reviewsLink)
+        request =  scrapy.Request(joinReviews, self.parse_reviews)
+        request.meta['objects'] = objects
+        return request
+       
+    def parse_reviews(self, response):
+        objects = response.meta['objects']
+        reviews = list()
+        temp = len(response.css('div.bewertung').extract())
+        for i in range(0,temp):
+            
+            temp1 = {
+                'name': response.css('h2 > a::text').extract()[i],
+                'note': response.css('div.note1::text').extract()[i],
+                'datum, passintenart, alter': response.css('div.text > p.text-klein::text').extract()[i],
+                'text': response.css('div.fliesstext::text').extract()[i+1],
+            }
+            reviews.append(temp1)
+            
+        objects['reviews'] = reviews
+
+        yield  objects
+    
