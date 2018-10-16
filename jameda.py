@@ -5,6 +5,7 @@ import scrapy
 class JamedaSpider(scrapy.Spider):
     name = "jameda"
     start_urls = [
+        'https://www.jameda.de/berlin/aerzte/augenaerzte/dr-safwan-rihawi/uebersicht/81401665_1/',
         'https://www.jameda.de/berlin/aerzte/augenaerzte/dr-kirk-nordwald/uebersicht/80121093_1/',
     ]
 
@@ -51,28 +52,21 @@ class JamedaSpider(scrapy.Spider):
         item = response.meta['item']
         
         reviewsLink = response.meta['reviewsLink']
-        
         reviews = list()
-        temp = len(response.css('div.bewertung').extract())
-        
-        
-        single_ratings = response.css('table.table.gesamtbewertung')
-        for i in range(0,temp):
-            try:
-                single_rating = dict()
-                temp1 = len(single_ratings[i].css('div.minoTooltip.fragezeichen_cursor::text').extract())
-                for j in range(0,temp1):
-                    single_rating[single_ratings[i].css('div.minoTooltip.fragezeichen_cursor::text').extract()[j]] =                                                                                   single_ratings[i].css('.note-small::text').extract()[j]
-                review = {
-                    'BName': response.css('h2 > a::text').extract()[i],
-                    'BNote': response.css('div.note1::text').extract()[i],
-                    'BMeta-Info': response.css('div.text > p.text-klein::text').extract()[i],
-                    'BText': response.css('div.fliesstext::text').extract()[i+1] + response.css('div.fliesstext::text').extract()[i+2],
-                    'BEinzelne-Bewertung' : single_rating
-                }
-                reviews.append(review)
-            except:
-                pass
+        for content in response.css('.bewertung'):
+            single_rating = dict() 
+            temp1 = content.css('div.minoTooltip.fragezeichen_cursor::text').extract()
+            if (len(temp1) != 0):
+                for i,j in zip(temp1,range(len(temp1))):
+                    single_rating[i] =  content.css('.note-small::text').extract()[j]
+            review = {
+               'BName' : content.css('h2 > a::text').extract_first(),
+               'BNote': content.css('div.note1::text').extract_first(),
+               'BMeta-Info': content.css('div.text > p.text-klein::text').extract_first(),
+               'BText': content.css('div.fliesstext::text').extract()[1],
+               'BEinzelne-Bewertung' : single_rating
+            }
+            reviews.append(review)
             
         item['reviews'] = item['reviews'] + reviews
 
@@ -104,36 +98,4 @@ class JamedaSpider(scrapy.Spider):
             yield scrapy.Request(url=url, meta={'item': item,'reviewsLink': reviewsLink}, headers=self.headers, callback=self.parse_reviews)
             
 
-    def more_reviews(self,response):
-        item = response.meta['item']
-        reviews = list()
-        temp = len(response.css('div.bewertung').extract())
-
-        single_ratings = response.css('table.table.gesamtbewertung')
-        for i in range(0,temp):
-            try:
-                single_rating = dict()
-                temp1 = len(single_ratings[i].css('div.minoTooltip.fragezeichen_cursor::text').extract())
-                for j in range(0,temp1):
-                    single_rating[single_ratings[i].css('div.minoTooltip.fragezeichen_cursor::text').extract()[j]] =                                                                                   single_ratings[i].css('.note-small::text').extract()[j]
-                review = {
-                    'BName': response.css('h2 > a::text').extract()[i],
-                    'BNote': response.css('div.note1::text').extract()[i],
-                    'BMeta-Info': response.css('div.text > p.text-klein::text').extract()[i],
-                    'BText': response.css('div.fliesstext::text').extract()[i+1] + response.css('div.fliesstext::text').extract()[i+2],
-                    'BEinzelne-Bewertung' : single_rating
-                }
-                reviews.append(review)
-            except:
-                pass
-
-        item['reviews'] = item['reviews'] + reviews
-        
-        # only for test
-        file = open('test.txt','w') 
-        file.write(str(len(item['reviews']))) 
-        file.close() 
-
-        
-        yield item
      
